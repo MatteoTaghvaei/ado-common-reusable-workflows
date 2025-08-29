@@ -1,3 +1,4 @@
+
 parameters:
   - name: ENVIRONMENT
     type: string
@@ -5,52 +6,44 @@ parameters:
   - name: SERVICE_CONNECTION
     type: string
 
-
 jobs:
-- job: Terraform_plan
-  displayName: 'Terraform Plan Job'
-  continueOnError: false
-  pool:
-    vmImage: 'ubuntu-latest'
+- job: Terraform_plan_reusable
+  displayName: Planning
   steps:
     # Install Terraform
     - task: TerraformInstaller@2
       inputs:
-        terraformVersion: 'latest'   
-
-    # Terraform Init 
+         terraformVersion: 'latest'
+    # Terraform Init
     - task: TerraformCLI@2
-      displayName: 'Terraform Init'
+      displayName: Terraform Init
       inputs:
         command: 'init'
         workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
         commandOptions: '-input=false -reconfigure'
         backendType: 'selfConfigured'
-        allowTelemetryCollection: true
       env:
         TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
-
     # Terraform Plan
     - task: TerraformCLI@2
-      displayName: 'Terraform Plan'
+      displayName: Terraform Plan
       inputs:
         command: 'plan'
         workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
-        commandOptions: '-out=tfplan'
-        allowTelemetryCollection: true
+        commandOptions: '-input=false -out=tfplan'
         environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
-        publishPlanResults: '${{ parameters.ENVIRONMENT }}-plan'   
+        publishPlanResults: '${{ parameters.ENVIRONMENT }}-plan'
       env:
         TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
         TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
         TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
         TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
         TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}
-
-    # Publish the artifact 
+    # Publish Plan as a pipeline artifact
     - task: PublishPipelineArtifact@1
-      displayName: 'Publish Terraform Plan'
+      displayName: Publish Terraform Plan
       inputs:
         targetPath: '$(System.DefaultWorkingDirectory)/infra/terraform/tfplan'
-        artifact: 'tfplan'
+        artifact: 'tfplan-${{ parameters.ENVIRONMENT }}'   
         publishLocation: 'pipeline'
+       

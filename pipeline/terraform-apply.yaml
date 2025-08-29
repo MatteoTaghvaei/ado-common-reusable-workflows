@@ -6,50 +6,48 @@ parameters:
     type: string
 
 jobs:
-  # Terraform Plan Job
-  - job: Terraform_Apply
-    displayName: 'Terraform Apply Job'
-    continueOnError: false
-    steps:
-      # Install Terraform
-      - task: TerraformInstaller@2
-        inputs:
-          terraformVersion: 'latest'
-
-      # Terraform Init (Terraform Cloud backend)
-      - task: TerraformCLI@2
-        displayName: 'Terraform Init'
-        inputs:
-          command: 'init'
-          workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
-          commandOptions: '-input=false -reconfigure'
-          backendType: 'selfConfigured'
-          allowTelemetryCollection: true
-        env:
-          TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
-
-      # Download the Terraform Plan artifact
-      - task: DownloadPipelineArtifact@2
-        displayName: 'Download Terraform Plan'
-        inputs:
-          artifact: 'tfplan'
-          path: '$(System.DefaultWorkingDirectory)/infra/terraform'
-
-      # Terraform Apply
-      - task: TerraformCLI@2
-        displayName: 'Terraform Apply'
-        inputs:
-          command: 'apply'
-          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
-          commandOptions: '-auto-approve tfplan'
-          allowTelemetryCollection: true
-          environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
-          runAzLogin: true
-        env:
-          TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
-          TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
-          TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
-          TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-          TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}
+- job: Terraform_Apply_reusable
+  displayName: Appling
+  continueOnError: false
+  steps:
+    # Install Terraform
+    - task: TerraformInstaller@2
+      inputs:
+        terraformVersion: 'latest'  
+    # Download the Terraform Plan artifact
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Terraform Plan'
+      inputs:
+        artifact: tfplan-${{ parameters.ENVIRONMENT }}
+        path: '$(Pipeline.Workspace)/downloaded-plans' 
+    # Verify the downloaded files
+    - script: ls -alh "$(Pipeline.Workspace)/downloaded-plans"
+   # Terraform Initalisation
+    - task: TerraformCLI@2
+      displayName: 'Terraform Init'
+      inputs:
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+        commandOptions: '-input=false -reconfigure'
+        backendType: 'selfConfigured'
+        allowTelemetryCollection: true
+      env:
+        TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+    # Terraform Apply
+    - task: TerraformCLI@2
+      displayName: 'Terraform Apply'
+      inputs:
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+        commandOptions: '-input=false -auto-approve "$(Pipeline.Workspace)/downloaded-plans/tfplan"'
+        allowTelemetryCollection: true
+        environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
+        runAzLogin: true
+      env:
+        TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+        TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
+        TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
+        TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+        TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}
 
 
