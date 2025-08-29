@@ -4,9 +4,8 @@ parameters:
     default: 'dev'
   - name: SERVICE_CONNECTION
     type: string
-    
-
-
+  - name: TFC_TOKEN
+    type: string 
 
 jobs:
   # Terraform Plan Job
@@ -29,7 +28,8 @@ jobs:
           backendType: 'selfConfigured'
           allowTelemetryCollection: true
         env:
-          TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+          TF_TOKEN_app_terraform_io: ${{ parameters.TFC_TOKEN }}
+          
 
       # Terraform Plan
       - task: TerraformCLI@2
@@ -39,14 +39,14 @@ jobs:
           workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
           commandOptions: '-out=tfplan'
           allowTelemetryCollection: true
-          environmentServiceName: $(SERVICE_CONNECTION)
-          publishPlanResults: "{$(ENVIRONMENT)-plan}"
+          environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
+          publishPlanResults: "{${{ parameters.ENVIRONMENT }}-plan}"  
         env:
-          TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+          TF_TOKEN_app_terraform_io: ${{ parameters.TFC_TOKEN }}
           TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
           TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
           TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-          TF_VAR_AZURE_ENV: $(ENVIRONMENT)
+          TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}
         
       # Publish the Terraform Plan as an artifact
       - task: PublishPipelineArtifact@1
