@@ -1,0 +1,58 @@
+parameters:
+  - name: ENVIRONMENT
+    type: string
+    default: 'dev'
+  - name: SERVICE_CONNECTION
+    type: string
+    default: 'adnova-id-management-azure-rm'
+
+
+
+jobs:
+  # Terraform Plan Job
+  - job: Terraform_Apply
+    displayName: 'Terraform Apply Job'
+    dependsOn: Terraform_plan
+    condition: succeeded()  # Only run if the previous job succeeded
+    continueOnError: false
+    steps:
+      # Install Terraform
+      - task: TerraformInstaller@2
+        inputs:
+          terraformVersion: 'latest'
+
+      # Terraform Init (Terraform Cloud backend)
+      - task: TerraformCLI@2
+        displayName: 'Terraform Init'
+        inputs:
+          command: 'init'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+          commandOptions: '-input=false -reconfigure'
+          backendType: 'selfConfigured'
+          allowTelemetryCollection: true
+        env:
+          TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+
+      # Download the Terraform Plan artifact
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download Terraform Plan'
+        inputs:
+          artifact: 'tfplan'
+          path: '$(System.DefaultWorkingDirectory)/terraform'
+
+      # Terraform Apply
+      - task: TerraformCLI@2
+        displayName: 'Terraform Apply'
+        inputs:
+          command: 'apply'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+          commandOptions: '-auto-approve tfplan'
+          allowTelemetryCollection: true
+          environmentServiceName: 'adnova-id-management-azure-rm'
+          runAzLogin: true
+        env:
+          TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+          TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
+          TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
+          TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+          TF_VAR_AZURE_ENV: $(ENVIRONMENT)
