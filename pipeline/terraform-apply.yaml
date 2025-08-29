@@ -4,7 +4,7 @@ parameters:
     default: 'dev'
   - name: SERVICE_CONNECTION
     type: string
-    default: 'adnova-id-management-azure-rm'
+   
 
 
 
