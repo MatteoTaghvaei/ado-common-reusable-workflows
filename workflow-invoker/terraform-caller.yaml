@@ -1,0 +1,68 @@
+#terraform caller example file
+
+trigger:
+  branches:
+    include:
+      - master
+
+# Reusable workflow caller
+resources:
+  repositories:
+    - repository: ado-common-reusable-workflows          
+      type: github                                
+      name: /MatteoTaghvaei/ado-common-reusable-workflows  # org/repo 
+      ref: refs/heads/master                      
+      endpoint: GITHUB_SERVICE_CONNECTION         # service connection to GitHub
+
+pool:
+  vmImage: ubuntu-latest
+
+variables: 
+  - name: ENVIRONMENT
+    value: dev
+
+stages:
+  - stage: Terraform
+    displayName: 'Terraform Stage'
+    jobs:
+      # Terraform Plan Job
+      - job: T_Plan
+        displayName: 'Terraform Plan ${{ variables.ENVIRONMENT }} Environment'
+        steps:
+          - template: reusable-workflow/terraform/terraform-plan.yaml@ado-common-reusable-workflows 
+            parameters:
+              ENVIRONMENT: ${{ variables.ENVIRONMENT }}
+              SERVICE_CONNECTION: 'SERVICE_CONNECTION'  # service connection pass as a parameter to the template
+
+      # Terraform Apply Job
+      - job: T_Apply
+        displayName: 'Terraform Apply ${{ variables.ENVIRONMENT }} Environment'
+        dependsOn: T_Plan
+        condition: succeeded()
+        steps:
+          - template: reusable-workflow/terraform/terraform-apply.yaml@ado-common-reusable-workflows  
+            parameters:
+              ENVIRONMENT: ${{ variables.ENVIRONMENT }}
+              SERVICE_CONNECTION: 'SERVICE_CONNECTION'
+
+
+      - job: T_Destroy
+        displayName: 'Terraform Destroy ${{ variables.ENVIRONMENT }} Environment'
+        dependsOn: [T_Plan, T_Apply]
+        condition: succeeded()
+        steps:
+          - template: reusable-workflow/terraform/terraform-destroy.yaml@ado-common-reusable-workflows  
+            parameters:
+              ENVIRONMENT: ${{ variables.ENVIRONMENT }}
+              SERVICE_CONNECTION: 'SERVICE_CONNECTION'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# How values flow from the caller to the template:
+# - Repository: the template repo is referenced as a external resource.
+# - Service connection (endpoint): used by the caller to download the template repo (GitHub). 
+#   Separately, we pass an Azure service connection NAME as a template parameter so tasks inside
+#   the template can authenticate to Azure.
+# - Parameters: compile-time inputs we send to the template (e.g., ENVIRONMENT, SERVICE_CONNECTION).
+# - Variable Group: runtime variables/secrets (e.g., TFC_TOKEN, ARM_*). These are NOT passed as
+#   parameters; the template's tasks reference them directly as $(VAR) at runtime.
+# ─────────────────────────────────────────────────────────────────────────────

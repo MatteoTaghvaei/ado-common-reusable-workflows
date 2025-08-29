@@ -47,3 +47,16 @@ jobs:
         artifact: 'tfplan-${{ parameters.ENVIRONMENT }}'   
         publishLocation: 'pipeline'
        
+# ───────────────────────────────────────────────────────────────
+# Template: terraform-plan.yaml
+#
+# Parameters:
+# - ENVIRONMENT: compile-time input passed from the caller
+#   (used to label plan results and artifact names).
+# - SERVICE_CONNECTION: compile-time input passed from the caller
+#   (name of the Azure service connection to authenticate Terraform with).
+#
+# Variables:
+# - Runtime secrets/variables (e.g., $(TFC_TOKEN), $(ARM_CLIENT_ID))
+#   come from the caller’s variable group and are available at runtime.
+# ───────────────────────────────────────────────────────────────
