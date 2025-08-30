@@ -29,6 +29,12 @@ steps:
       allowTelemetryCollection: true
     env:
       TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+  # List Terraform Workspaces
+  - script: |
+      export TF_TOKEN_app_terraform_io=$(TFC_TOKEN)
+      terraform workspace list
+    workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+    displayName: List Terraform Workspaces
   # Terraform Destroy
   - task: TerraformCLI@2
     displayName: 'Terraform Destroy'

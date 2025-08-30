@@ -20,6 +20,13 @@ steps:
       backendType: 'selfConfigured'
     env:
       TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+  # List Terraform Workspaces
+  - script: |
+      export TF_TOKEN_app_terraform_io=$(TFC_TOKEN)
+      terraform workspace list
+    workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+    displayName: List Terraform Workspaces
+    
   # Terraform Plan
   - task: TerraformCLI@2
     displayName: Terraform Plan

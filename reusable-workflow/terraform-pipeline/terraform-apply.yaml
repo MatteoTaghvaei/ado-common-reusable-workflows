@@ -29,6 +29,11 @@ steps:
       allowTelemetryCollection: true
     env:
       TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+  - script: |
+      export TF_TOKEN_app_terraform_io=$(TFC_TOKEN)
+      terraform workspace list
+    workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+    displayName: List Terraform Workspaces
   # Terraform Apply
   - task: TerraformCLI@2
     displayName: 'Terraform Apply'
