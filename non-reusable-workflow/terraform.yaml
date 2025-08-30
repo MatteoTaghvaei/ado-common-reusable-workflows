@@ -1,0 +1,174 @@
+# Non-reusable workflow example file with tasks
+trigger:
+  branches:
+    include:
+      - master
+pool:
+  vmImage: ubuntu-latest
+
+variables: 
+  - name: ENVIRONMENT
+    value: dev
+    
+stages:
+  - stage: Terraform
+    displayName: 'Terraform Stage'
+    jobs:
+    - job: Terraform_plan
+      displayName: 'Terraform Plan Job'
+      steps:
+        - task: TerraformInstaller@2
+          inputs:
+            terraformVersion: 'latest'
+
+        - task: TerraformCLI@2
+          displayName: 'Terraform Init'
+          inputs:
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+            commandOptions: '-input=false -reconfigure'
+            backendType: 'selfConfigured'
+          env:
+            TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+
+        - task: TerraformCLI@2
+          displayName: 'Terraform Plan'
+          inputs:
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+            commandOptions: '-out=tfplan'
+            environmentServiceName: SERVICE_CONNECTION
+            publishPlanResults: '$(ENVIRONMENT)-terraform-plan'
+          env:
+            TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+            TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
+            TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
+            TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+            TF_VAR_AZURE_ENV: $(ENVIRONMENT)
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish Terraform Plan'
+          inputs:
+            targetPath: '$(System.DefaultWorkingDirectory)/infra/terraform'
+            artifact: 'tfplan-$(ENVIRONMENT)'
+            publishLocation: 'pipeline'
+
+    # Terraform Apply Job
+    - job: Terraform_Apply
+      displayName: 'Terraform Apply Job'
+      dependsOn: Terraform_plan
+      condition: succeeded()
+      steps:
+        - task: TerraformInstaller@2
+          inputs:
+            terraformVersion: 'latest'
+
+        - task: TerraformCLI@2
+          displayName: 'Terraform Init'
+          inputs:
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+            commandOptions: '-input=false -reconfigure'
+            backendType: 'selfConfigured'
+          env:
+            TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download Terraform Plan'
+          inputs:
+            artifact: 'tfplan-$(ENVIRONMENT)'
+            path: '$(System.DefaultWorkingDirectory)/infra/terraform'
+
+        - task: TerraformCLI@2
+          displayName: 'Terraform Apply'
+          inputs:
+            command: 'apply'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+            commandOptions: '-auto-approve tfplan'
+            environmentServiceName: SERVICE_CONNECTION
+            runAzLogin: true
+          env:
+            TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+            TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
+            TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
+            TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+            TF_VAR_AZURE_ENV: $(ENVIRONMENT)
+
+
+
+
+# Reusable workflow with bash script
+---
+
+trigger:
+  branches:
+    include:
+      - master
+pool:
+  vmImage: ubuntu-latest
+
+variables: 
+  - name: ENVIRONMENT
+    value: dev
+
+stages:
+  - stage: Terraform
+    displayName: 'Terraform Stage'
+    jobs:
+      - job: Terraform_plan
+        displayName: 'Terraform Plan Job'
+        steps:
+          # Install Terraform
+          - task: TerraformInstaller@2
+            inputs:
+              terraformVersion: 'latest'
+
+          # Terraform Init & Plan using Azure CLI
+          - task: AzureCLI@2
+            displayName: "Terraform Init & Plan"
+            inputs:
+              azureSubscription: SERVICE_CONNECTION # service connection 
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                export ARM_USE_OIDC=true
+                export ARM_CLIENT_ID="$servicePrincipalId"
+                export ARM_TENANT_ID="$tenantId"
+                export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                export TF_TOKEN_app_terraform_io=$(TFC_TOKEN) 
+                export TF_VAR_AZURE_CLIENT_ID=$ARM_CLIENT_ID
+                export TF_VAR_AZURE_TENANT_ID=$ARM_TENANT_ID
+                export TF_VAR_AZURE_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID
+                export TF_VAR_AZURE_ENV=$(ENVIRONMENT)
+                cd "$(System.DefaultWorkingDirectory)/infra/terraform"
+                terraform init -input=false
+                terraform validate
+                terraform fmt -check
+                terraform plan -out=tfplan
+
+          # Terraform Apply using Azure CLI
+          - task: AzureCLI@2
+            displayName: "Terraform Apply"
+            inputs:
+              azureSubscription: SERVICE_CONNECTION
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                export ARM_USE_OIDC=true
+                export ARM_CLIENT_ID="$servicePrincipalId"
+                export ARM_TENANT_ID="$tenantId"
+                export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                export TF_TOKEN_app_terraform_io=$(TFC_TOKEN) 
+                export TF_VAR_AZURE_CLIENT_ID=$ARM_CLIENT_ID
+                export TF_VAR_AZURE_TENANT_ID=$ARM_TENANT_ID
+                export TF_VAR_AZURE_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID
+                export TF_VAR_AZURE_ENV=$(ENVIRONMENT)
+                cd "$(System.DefaultWorkingDirectory)/infra/terraform"
+                terraform init -input=false
+                terraform validate
+                terraform fmt -check
+                terraform apply -auto-approve tfplan
+
+       
