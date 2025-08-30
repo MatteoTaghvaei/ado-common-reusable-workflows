@@ -1,0 +1,61 @@
+trigger:
+  branches:
+    include:
+      - feature/*
+
+resources:
+  repositories:
+    - repository: adnova-shared-pipeline      
+      type: git
+      name: Adnova-Infrastructure/adnova-shared-pipeline
+      ref: refs/heads/master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+ 
+  - name: ENVIRONMENT
+    value: 'dev'
+
+stages:
+  - stage: Terraform_plan
+    displayName: 'Terraform plan'
+    jobs:
+      #Terraform Plan Job
+      - job: T_Plan
+        displayName: 'Terraform Plan ${{ variables.ENVIRONMENT }} Environment '
+        continueOnError: false
+        steps: 
+        - template: reusable-workflow/terraform/terraform-apply.yaml@ado-common-reusable-workflows 
+          parameters:
+            ENVIRONMENT: ${{ variables.ENVIRONMENT }}   
+            SERVICE_CONNECTION: SERVICE_CONNECTION  # service connection pass as a parameter to the template
+
+  - stage: Terraform_apply
+    displayName: 'Terraform apply'
+    dependsOn: Terraform_plan 
+    jobs:
+      #Terraform apply Job
+      - job: T_Apply
+        displayName: 'Terraform Plan ${{ variables.ENVIRONMENT }} Environment '
+        continueOnError: false
+      - template: reusable-workflow/terraform/terraform-apply-approval-env.yaml@ado-common-reusable-workflows 
+        parameters:
+          ENVIRONMENT: ${{ variables.ENVIRONMENT }}   
+          SERVICE_CONNECTION: 'adnova-id-management-azure-rm'
+          adoENVIRONMENT: adoENVIRONMENT # the environment name in ado
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Multi-stage Terraform pipeline with approval
+# - Stage 1: runs terraform plan and publishes the plan artifact
+# - Stage 2: runs terraform apply, gated by Azure DevOps Environment approval
+#   (uses Environment 'adoENVIRONMENT'value to enforce checks/approvals)
+# - Uses shared templates from adnova-shared-pipeline for plan/apply logic
+# ─────────────────────────────────────────────────────────────────────────────
+        
+
+
+
+

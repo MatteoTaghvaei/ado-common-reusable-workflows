@@ -1,0 +1,56 @@
+parameters:
+  - name: adoENVIRONMENT
+    type: string
+  - name: ENVIRONMENT
+    type: string
+  - name: SERVICE_CONNECTION
+    type: string
+  - name: jobName
+    type: string
+    default: Apply
+
+jobs:
+- deployment: ${{ parameters.jobName }}
+  displayName: 'Terraform Apply ${{ parameters.ENVIRONMENT }}'
+  environment: ${{ parameters.adoENVIRONMENT }}  
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - checkout: self
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Terraform Plan'
+            inputs:
+              artifact: tfplan-${{ parameters.ENVIRONMENT }}
+              path: '$(Pipeline.Workspace)/downloaded-plans'
+
+          - task: TerraformInstaller@2
+            inputs:
+              terraformVersion: 'latest'
+              
+          - task: TerraformCLI@2
+            displayName: 'Terraform Init'
+            inputs:
+              command: 'init'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+              commandOptions: '-input=false -reconfigure'
+              backendType: 'selfConfigured'
+              allowTelemetryCollection: true
+            env:
+              TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+      
+          - task: TerraformInstaller@2
+            inputs:
+              command: 'apply'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+              commandOptions: '-input=false -auto-approve'
+              allowTelemetryCollection: true
+              environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
+              runAzLogin: true
+            env:
+              TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+              TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
+              TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
+              TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+              TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}

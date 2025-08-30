@@ -5,47 +5,44 @@ parameters:
   - name: SERVICE_CONNECTION
     type: string
 
-jobs:
-- job: Terraform_plan_reusable
-  displayName: Planning
-  steps:
-    # Install Terraform
-    - task: TerraformInstaller@2
-      inputs:
-         terraformVersion: 'latest'
-    # Terraform Initalisation
-    - task: TerraformCLI@2
-      displayName: Terraform Init
-      inputs:
-        command: 'init'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
-        commandOptions: '-input=false -reconfigure'
-        backendType: 'selfConfigured'
-      env:
-        TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
-    # Terraform Plan
-    - task: TerraformCLI@2
-      displayName: Terraform Plan
-      inputs:
-        command: 'plan'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
-        commandOptions: '-input=false -out=tfplan'
-        environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
-        publishPlanResults: '${{ parameters.ENVIRONMENT }}-plan'
-      env:
-        TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
-        TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
-        TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
-        TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-        TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}
+steps:
+  # Install Terraform
+  - task: TerraformInstaller@2
+    inputs:
+        terraformVersion: 'latest'
+  # Terraform Initalisation
+  - task: TerraformCLI@2
+    displayName: Terraform Init
+    inputs:
+      command: 'init'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+      commandOptions: '-input=false -reconfigure'
+      backendType: 'selfConfigured'
+    env:
+      TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+  # Terraform Plan
+  - task: TerraformCLI@2
+    displayName: Terraform Plan
+    inputs:
+      command: 'plan'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
+      commandOptions: '-input=false -out=tfplan'
+      environmentServiceName: ${{ parameters.SERVICE_CONNECTION }}
+      publishPlanResults: '${{ parameters.ENVIRONMENT }}-plan'
+    env:
+      TF_TOKEN_app_terraform_io: $(TFC_TOKEN)
+      TF_VAR_AZURE_CLIENT_ID: $(ARM_CLIENT_ID)
+      TF_VAR_AZURE_TENANT_ID: $(ARM_TENANT_ID)
+      TF_VAR_AZURE_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+      TF_VAR_AZURE_ENV: ${{ parameters.ENVIRONMENT }}
 
-    # Publish the Terraform plan as a pipeline artifact
-    - task: PublishPipelineArtifact@1
-      displayName: Publish Terraform Plan
-      inputs:
-        targetPath: '$(System.DefaultWorkingDirectory)/infra/terraform/tfplan'
-        artifact: 'tfplan-${{ parameters.ENVIRONMENT }}'   
-        publishLocation: 'pipeline'
+  # Publish the Terraform plan as a pipeline artifact
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Terraform Plan
+    inputs:
+      targetPath: '$(System.DefaultWorkingDirectory)/infra/terraform/tfplan'
+      artifact: 'tfplan-${{ parameters.ENVIRONMENT }}'   
+      publishLocation: 'pipeline'
        
 # ───────────────────────────────────────────────────────────────
 # Template: terraform-plan.yaml
