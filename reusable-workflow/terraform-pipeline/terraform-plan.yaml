@@ -23,6 +23,7 @@ steps:
   # List Terraform Workspaces
   - script: |
       export TF_TOKEN_app_terraform_io=$(TFC_TOKEN)
+      export TF_WORKSPACE="$(echo "${{ parameters.ENVIRONMENT }}" | tr '[:upper:]' '[:lower:]')-$(for word in $(AZURE_DEPLOYMENT_REGION); do echo -n "${word:0:1}"; done | tr '[:upper:]' '[:lower:]')"
       terraform workspace list
     workingDirectory: '$(System.DefaultWorkingDirectory)/infra/terraform'
     displayName: List Terraform Workspaces

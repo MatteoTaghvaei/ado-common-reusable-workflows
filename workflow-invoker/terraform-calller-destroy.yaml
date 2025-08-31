@@ -45,5 +45,6 @@ stages:
         - template: reusable-workflow/terraform/terraform-destroy.yaml@ado-common-reusable-workflows  
           parameters:
             ENVIRONMENT: ${{ parameters.env }}   
-            SERVICE_CONNECTION: 'SERVICE_CONNECTION'    
+            SERVICE_CONNECTION: 'SERVICE_CONNECTION'   
+             
             
