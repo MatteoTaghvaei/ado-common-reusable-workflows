@@ -1,0 +1,49 @@
+trigger: 
+  none
+
+parameters:
+- name: env
+  displayName: Environment to Destroy
+  type: string
+  default: 'dev'
+  values:
+    - dev
+    - test
+  
+resources:
+  repositories:
+    - repository: ado-common-reusable-workflows          
+      type: github                                
+      name: /MatteoTaghvaei/ado-common-reusable-workflows  # org/repo 
+      ref: refs/heads/master                      
+      endpoint: GITHUB_SERVICE_CONNECTION         # service connection to GitHub
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Terraform
+    displayName: 'Terraform Stage'
+    jobs:
+      #Terraform Plan Job
+      - job: T_Plan
+        displayName: 'Terraform Plan ${{ parameters.env }} Environment '
+        continueOnError: false
+        steps:
+        - template: reusable-workflow/terraform/terraform-plan.yaml@ado-common-reusable-workflows  
+          parameters:
+            ENVIRONMENT: ${{ parameters.env }}   
+            SERVICE_CONNECTION: 'SERVICE_CONNECTION'
+
+       #Terraform Destrot Job   
+      - job: T_Destroy
+        displayName: 'Terraform Destroy ${{ parameters.env }} Environment '
+        dependsOn: T_Plan
+        condition: succeeded()  
+        continueOnError: false
+        steps:
+        - template: reusable-workflow/terraform/terraform-destroy.yaml@ado-common-reusable-workflows  
+          parameters:
+            ENVIRONMENT: ${{ parameters.env }}   
+            SERVICE_CONNECTION: 'SERVICE_CONNECTION'    
+            
